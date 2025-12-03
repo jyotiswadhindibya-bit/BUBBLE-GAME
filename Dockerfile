@@ -3,7 +3,7 @@ FROM maven:3.9.6-eclipse-temurin-21 AS build
 WORKDIR /app
 COPY . .
 # Build the app (skipping tests to save time/memory)
-RUN ./mvnw clean package -DskipTests
+RUN mvn clean package -DskipTests
 
 # 2. Run Stage
 FROM eclipse-temurin:21-jdk-jammy
