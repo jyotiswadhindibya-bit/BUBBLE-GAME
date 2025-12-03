@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: bubble-sort-game
+    env: java
+    # Build the app using the wrapper, skipping tests to save memory
+    buildCommand: ./mvnw clean package -DskipTests
+    # Run the app (Using *.jar so it works regardless of your project name)
+    startCommand: java -jar target/*.jar
+    envVars:
+      - key: JAVA_VERSION
+        value: 21
