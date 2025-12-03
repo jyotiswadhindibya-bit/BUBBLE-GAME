@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Bubble Game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #1a202c; color: white; overflow: hidden; height: 100vh; font-family: sans-serif; }
+        
+        /* Bubble Animation */
+        .bubble {
+            position: absolute;
+            background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.1));
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex; justify-content: center; align-items: center;
+            color: black; font-weight: bold;
+            box-shadow: 0 0 10px rgba(255,255,255,0.3);
+            animation: floatDown linear infinite;
+            transition: transform 0.1s;
+        }
+        .bubble:active { transform: scale(0.9); background: radial-gradient(circle at 30% 30%, #ffaaaa, #990000); }
+        .bubble:hover { box-shadow: 0 0 15px rgba(255, 255, 255, 0.6); }
+
+        @keyframes floatDown {
+            from { top: -100px; }
+            to { top: 110vh; }
+        }
+
+        .stack-item {
+            background: #3b82f6; margin-top: 4px; padding: 5px; text-align: center; border-radius: 4px;
+            animation: slideIn 0.3s ease;
+        }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .pop-item {
+            display: inline-block; background: #10b981; padding: 10px 15px; margin: 5px; border-radius: 50%;
+            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); color: black; font-weight: bold;
+        }
+        @keyframes popIn { from { transform: scale(0); } to { transform: scale(1); } }
+    </style>
+</head>
+<body class="flex">
+
+    <!-- Control Panel -->
+    <div class="z-10 p-6 bg-gray-900 bg-opacity-90 h-full w-80 border-r border-gray-700 flex flex-col shadow-xl">
+        <h1 class="text-2xl font-bold text-blue-400 mb-2">Bubble Game</h1>
+        <p class="text-xs text-gray-400 mb-6">Using Spring Boot</p>
+        
+        <!-- Instructions for the User -->
+        <div class="bg-gray-800 p-3 rounded mb-4 border border-gray-600">
+            <h3 class="font-bold text-yellow-400 text-sm mb-2">How to Play:</h3>
+            <ol class="text-xs text-gray-300 list-decimal pl-4 space-y-1">
+                <li>Click <b>Start Bubbles</b> to begin.</li>
+                <li>Click falling bubbles to capture numbers into the Stack.</li>
+                <li>Click <b>Stop & Sort</b> to send data to Java Backend.</li>
+                <li>Watch the sorted result!</li>
+            </ol>
+        </div>
+
+        <button onclick="startApp()" id="btnStart" class="bg-green-600 hover:bg-green-500 text-white p-2 rounded mb-2 w-full font-bold transition-colors">Start Bubbles</button>
+        <button onclick="stopAndSort()" id="btnStop" class="bg-red-600 hover:bg-red-500 text-white p-2 rounded mb-6 w-full font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-colors" disabled>Stop & Sort (Backend)</button>
+        
+        <div class="flex-grow bg-gray-800 rounded p-4 overflow-y-auto flex flex-col-reverse border border-gray-700" id="stackView">
+            <!-- Stack Items go here -->
+        </div>
+        <p class="text-center text-gray-400 mt-2 text-sm">Your Stack (LIFO)</p>
+    </div>
+
+    <!-- Main Display -->
+    <div class="flex-grow relative">
+        <div id="bubbleLayer" class="absolute inset-0 pointer-events-none"></div>
+        
+        <!-- Output Area -->
+        <div class="absolute bottom-10 left-10 right-10 min-h-[120px] bg-gray-800 bg-opacity-95 rounded-lg p-6 z-20 border border-gray-700 shadow-2xl">
+            <h3 class="text-green-400 font-bold mb-2 flex items-center">
+                <span>Sorted Output (From Spring Boot)</span>
+                <span id="loader" class="hidden ml-2 w-4 h-4 border-2 border-green-400 border-t-transparent rounded-full animate-spin"></span>
+            </h3>
+            <div id="outputArea" class="flex flex-wrap gap-2"></div>
+            <p id="statusMsg" class="text-yellow-300 mt-4 text-sm font-mono">Ready to play...</p>
+        </div>
+    </div>
+
+    <script>
+        let stack = [];
+        let intervalId;
+        let isRunning = false;
+
+        function startApp() {
+            if(isRunning) return;
+            isRunning = true;
+            stack = [];
+            document.getElementById('stackView').innerHTML = '';
+            document.getElementById('outputArea').innerHTML = '';
+            document.getElementById('btnStart').disabled = true;
+            document.getElementById('btnStart').classList.add('opacity-50');
+            document.getElementById('btnStop').disabled = false;
+            document.getElementById('statusMsg').innerText = "Game Running... Catch the bubbles!";
+            
+            intervalId = setInterval(spawnBubble, 600);
+        }
+
+        function spawnBubble() {
+            const b = document.createElement('div');
+            b.className = 'bubble';
+            const size = Math.random() * 40 + 40;
+            const left = Math.random() * 90;
+            const dur = Math.random() * 3 + 4;
+            
+            b.style.width = size + 'px';
+            b.style.height = size + 'px';
+            b.style.left = left + '%';
+            b.style.animationDuration = dur + 's';
+            b.style.pointerEvents = 'auto';
+
+            b.onmousedown = () => {
+                const val = Math.floor(Math.random() * 100) + 1;
+                stack.push(val);
+                updateStackUI();
+                
+                // Pop animation before removal
+                b.style.transform = "scale(1.5)";
+                b.style.opacity = "0";
+                setTimeout(() => b.remove(), 100);
+            };
+
+            // Auto cleanup
+            setTimeout(() => { if(b.parentNode) b.remove() }, dur * 1000);
+            document.getElementById('bubbleLayer').appendChild(b);
+        }
+
+        function updateStackUI() {
+            const container = document.getElementById('stackView');
+            container.innerHTML = '';
+            stack.forEach(val => {
+                const div = document.createElement('div');
+                div.className = 'stack-item';
+                div.innerText = val;
+                container.appendChild(div);
+            });
+        }
+
+        async function stopAndSort() {
+            isRunning = false;
+            clearInterval(intervalId);
+            document.getElementById('bubbleLayer').innerHTML = ''; // Clear bubbles
+            document.getElementById('btnStop').disabled = true;
+            document.getElementById('loader').classList.remove('hidden');
+            document.getElementById('statusMsg').innerText = "Connecting to Spring Boot Backend (/bubbles/logic)...";
+
+            try {
+                // INTEGRATION POINT: Relative URL ensures it works on localhost:8080 or deployed
+                const response = await fetch('/bubbles/logic', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(stack)
+                });
+
+                if (!response.ok) throw new Error(`Backend Error: ${response.status}`);
+                
+                const sortedStack = await response.json();
+                
+                // Update local stack to match sorted backend data
+                stack = sortedStack;
+                updateStackUI();
+                
+                document.getElementById('loader').classList.add('hidden');
+                document.getElementById('statusMsg').innerText = "Success! Backend sorted the data. Popping now...";
+                popSequence();
+
+            } catch (error) {
+                console.error(error);
+                document.getElementById('loader').classList.add('hidden');
+                document.getElementById('statusMsg').className = "text-red-400 mt-4 text-sm font-mono";
+                document.getElementById('statusMsg').innerText = "Connection Failed! Is the Spring Boot server running on port 8080?";
+                document.getElementById('btnStart').disabled = false;
+                document.getElementById('btnStart').classList.remove('opacity-50');
+            }
+        }
+
+        async function popSequence() {
+            const out = document.getElementById('outputArea');
+            while(stack.length > 0) {
+                // Standard Stack Pop (LIFO)
+                const val = stack.pop(); 
+                updateStackUI();
+                
+                const node = document.createElement('div');
+                node.className = 'pop-item';
+                node.innerText = val;
+                out.appendChild(node);
+                
+                await new Promise(r => setTimeout(r, 400));
+            }
+            document.getElementById('statusMsg').className = "text-yellow-300 mt-4 text-sm font-mono";
+            document.getElementById('statusMsg').innerText = "Process Complete. Ready to play again.";
+            document.getElementById('btnStart').disabled = false;
+            document.getElementById('btnStart').classList.remove('opacity-50');
+        }
+    </script>
+</body>
+</html>
